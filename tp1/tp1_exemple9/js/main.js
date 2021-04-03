@@ -51,8 +51,10 @@ function createScene() {
 
     createLights(scene);
 
-    createHeroDude(scene);
- 
+    //createHeroDude(scene);
+
+    createZombie(scene);
+
    return scene;
 }
 
@@ -201,6 +203,20 @@ function createHeroDude(scene) {
          
 
     });
+}
+
+function createZombie(scene) {
+    BABYLON.SceneLoader.ImportMesh("Zombie_Geo", "models/Zombie/", "Zombie.babylon", scene, function (newMeshes, particleSystems, skeletons) {
+        let zombie = newMeshes[0];
+        //heroDude.position = new BABYLON.Vector3(0, 0, 5);  // The original dude
+        // make it smaller 
+        zombie.scaling = new BABYLON.Vector3(0.2  , 0.2, 0.2);
+        zombie.position = new BABYLON.Vector3(0, 0, 0);
+        zombie.rotation = new BABYLON.Vector3( -Math.PI/2 , 0, 0);
+        
+        //heroDude.speed = 0.1;
+
+    });	
 }
 
 
