@@ -10,8 +10,8 @@ export default class Zombie {
         // set a random target for zombie
         zombieMesh.Zombie = this;
     }
-
-    chase(scene) {
+    // zombie chase dude as dude chase tank before
+    chase(scene, deltaTime) {
                   // follow the tank
                   let tank = scene.getMeshByName("heroTank");
                   // let's compute the direction vector that goes from Dude to the tank
@@ -27,17 +27,17 @@ export default class Zombie {
                   // let make the Dude move towards the tank
                   if(distance > 30) {
                       //a.restart();   
-                      this.zombieMesh.moveWithCollisions(dir.multiplyByFloats(this.speed, this.speed, this.speed));
+                      this.zombieMesh.moveWithCollisions(dir.multiplyByFloats(this.speed*0.5*deltaTime/16, this.speed*0.5*deltaTime/16, this.speed*0.5*deltaTime/16));
                   }
                   else {
                       //a.pause();
                   }   
     }
-
-    move() {
+    // if dude does not move, zombie move randomly
+    move(deltaTime) {
         let ra = Math.random()*1000;
         // 0.5% chance that zombie will randomly change rotation
-        if (ra < 5) {
+        if (ra < 3) {
             // generate a random target for zombie to chase
             let target = new BABYLON.Vector3( Math.floor(Math.random()*1000-500), 0,  Math.floor(Math.random()*1000-500));
             let direction = target.subtract(this.zombieMesh.position);
@@ -45,10 +45,10 @@ export default class Zombie {
             let dir = direction.normalize();
             let alpha = Math.atan2(-dir.x, -dir.z);
             this.zombieMesh.rotation.y += alpha;
-            this.zombieMesh.locallyTranslate(new BABYLON.Vector3( this.speed, this.speed, 0));
+            this.zombieMesh.locallyTranslate(new BABYLON.Vector3( this.speed*deltaTime/16, this.speed*deltaTime/16, 0));
         } else {
             // else zombie continue move forward
-            this.zombieMesh.locallyTranslate(new BABYLON.Vector3( this.speed, this.speed, 0));
+            this.zombieMesh.locallyTranslate(new BABYLON.Vector3( this.speed*deltaTime/16, this.speed*deltaTime/16, 0));
         }
     }
 

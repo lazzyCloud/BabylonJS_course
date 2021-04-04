@@ -12,24 +12,25 @@ export default class Dude {
         // SEE IN RENDER LOOP !
         dudeMesh.Dude = this;
     }
+    // change move method in dude, current dude should move as previous tank
+    move(inputStates, deltaTime) {
 
-    move(inputStates) {
         if(inputStates.up) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, 1*tank.speed));
-            this.dudeMesh.locallyTranslate(new BABYLON.Vector3( 0, 0,-this.speed));
+            this.dudeMesh.locallyTranslate(new BABYLON.Vector3( 0, 0,-this.speed*deltaTime/16));
+            
         }    
         if(inputStates.down) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, -1*tank.speed));
-            this.dudeMesh.locallyTranslate(new BABYLON.Vector3( 0, 0,this.speed));
+            this.dudeMesh.locallyTranslate(new BABYLON.Vector3( 0, 0,this.speed*deltaTime/16));
 
         }    
         if(inputStates.left) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(-1*tank.speed, 0, 0));
-            this.dudeMesh.rotation.y -= 0.02;
+            this.dudeMesh.rotation.y -= 0.02*deltaTime/16;
+            // does not work? why?
+            //scene.stopAnimation(this.dudeMesh);
+            
         }    
         if(inputStates.right) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(1*tank.speed, 0, 0));
-            this.dudeMesh.rotation.y += 0.02;
+            this.dudeMesh.rotation.y += 0.02*deltaTime/16;
         }
     }
 }

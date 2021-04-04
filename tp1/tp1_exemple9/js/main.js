@@ -21,10 +21,10 @@ function startGame() {
     
     engine.runRenderLoop(() => {
         let deltaTime = engine.getDeltaTime(); // remind you something ?F
-
+        // use deltaTime to calculate move distance
         let tank = scene.getMeshByName("heroTank");
         if (tank) {
-            tank.Dude.move(inputStates);
+            tank.Dude.move(inputStates, deltaTime);
         }
         
  
@@ -33,17 +33,17 @@ function startGame() {
         let tmpZombie = scene.getMeshByName("zombie");
         if (tmpZombie)
             if (inputStates.up || inputStates.down) {
-                tmpZombie.Zombie.chase(scene);
+                tmpZombie.Zombie.chase(scene, deltaTime);
             } else {
-                tmpZombie.Zombie.move();
+                tmpZombie.Zombie.move(deltaTime);
             }
         if(scene.zombies) {
             for(var i = 0 ; i < scene.zombies.length ; i++) {
 
                 if (inputStates.up || inputStates.down) {
-                    scene.zombies[i].Zombie.chase(scene);
+                    scene.zombies[i].Zombie.chase(scene, deltaTime);
                 } else {
-                    scene.zombies[i].Zombie.move();
+                    scene.zombies[i].Zombie.move(deltaTime);
                 }
                 
             }
@@ -59,8 +59,6 @@ function createScene() {
     let ground = createGround(scene);
     let freeCamera = createFreeCamera(scene);
     createTank(scene);
-    // second parameter is the target to follow
-
 
 
     createLights(scene);
@@ -78,7 +76,13 @@ function createGround(scene) {
 
     function onGroundCreated() {
         const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
-        groundMaterial.diffuseTexture = new BABYLON.Texture("images/grass.jpg");
+        // change texture of ground
+        let myTexture = new BABYLON.Texture("images/ground.jpg")
+        myTexture.uScale = 20;    myTexture.vScale = 20;
+        groundMaterial.diffuseTexture = myTexture;
+        // add ground color
+        groundMaterial.useRGBColor = false;
+        groundMaterial.primaryColor = BABYLON.Color3.Magenta();
         ground.material = groundMaterial;
         // to be taken into account by collision detection
         ground.checkCollisions = true;
@@ -89,7 +93,9 @@ function createGround(scene) {
 
 function createLights(scene) {
     // i.e sun light with all light rays parallels, the vector is the direction.
-    let light0 = new BABYLON.DirectionalLight("dir0", new BABYLON.Vector3(-1, -1, 0), scene);
+    // similate natural light
+    var light = new BABYLON.HemisphericLight("HemiLight", new BABYLON.Vector3(0, 1, 0), scene);
+    //let light0 = new BABYLON.DirectionalLight("dir0", new BABYLON.Vector3(-1, -1, 0), scene);
 
 }
 
@@ -118,32 +124,35 @@ function createFreeCamera(scene) {
 function createFollowCamera(scene,target) {
     let camera = new BABYLON.FollowCamera("tankFollowCamera",target.position, scene,target);
 
-    camera.radius = 40; // how far from the object to follow
-	camera.heightOffset = 14; // how high above the object to place the camera
-	camera.rotationOffset = 180; // the viewing angle
+    camera.radius = 100; // how far from the object to follow
+	camera.heightOffset = 40; // how high above the object to place the camera
+    // change viewing angle, should follow dude's view
+	camera.rotationOffset = 0; // the viewing angle
 	camera.cameraAcceleration = .1; // how fast to move
 	camera.maxCameraSpeed = 5; // speed limit
-
+    camera.cameraRotation = new BABYLON.Vector3(0, 0,0);
     return camera;
 }
 
 let zMovement = 5;
 function createTank(scene) {
-
+    // create dude instead of tank
     BABYLON.SceneLoader.ImportMesh("him", "models/Dude/", "Dude.babylon", scene,  (newMeshes, particleSystems, skeletons) => {
         let tank = newMeshes[0];
         tank.position = new BABYLON.Vector3(0, 0, 5);  // The original dude
         // make it smaller 
-        tank.scaling = new BABYLON.Vector3(0.2  , 0.2, 0.2);
+        tank.scaling = new BABYLON.Vector3(0.5 , 0.5, 0.5);
         //heroDude.speed = 0.1;
 
         // give it a name so that we can query the scene to get it by name
         tank.name = "heroTank";
 
+        
+
+        let dude = new Dude(tank, 2);
         let a = scene.beginAnimation(skeletons[0], 0, 120, true, 1);
-
-        let dude = new Dude(tank, 1);
-
+        // create follow camera after creating tank
+        // otherwise camera may attach to null due to async steps during scene creation
         let followCamera = createFollowCamera(scene, tank);
         scene.activeCamera = followCamera;
     });
@@ -164,14 +173,14 @@ function createZombie(scene) {
         zombie.position = new BABYLON.Vector3(xrand, 0, zrand);
         zombie.rotation = new BABYLON.Vector3( -Math.PI/2 , 0, 0);
         scene.beginAnimation(zombie.skeleton, 0, 122, true, 1);
-        let oneZombie = new Zombie(zombie, 0.2);
+        let oneZombie = new Zombie(zombie, 0.5);
         
         // make clones
         scene.zombies = [];
         for(let i = 0; i < 10; i++) {
             scene.zombies[i] = doClone(zombie, skeletons, i);
             scene.beginAnimation(scene.zombies[i].skeleton, 0, 122, true, 1);
-            var temp = new Zombie(scene.zombies[i], 0.2);
+            var temp = new Zombie(scene.zombies[i], 0.5);
 
         }
 
@@ -220,34 +229,6 @@ window.addEventListener("resize", () => {
     engine.resize()
 });
 
-function move() {
-    let yMovement = 0;
-    let tank = scene.getMeshByName("heroTank");
-   
-    if (tank.position.y > 2) {
-        zMovement = 0;
-        yMovement = -2;
-    } 
-    //tank.moveWithCollisions(new BABYLON.Vector3(0, yMovement, zMovement));
-
-    if(inputStates.up) {
-        //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, 1*tank.speed));
-        tank.moveWithCollisions(new BABYLON.Vector3(0, 0, 1*tank.speed));
-    }    
-    if(inputStates.down) {
-        //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, -1*tank.speed));
-        tank.moveWithCollisions(new BABYLON.Vector3(0, 0, 1*tank.speed));
-
-    }    
-    if(inputStates.left) {
-        //tank.moveWithCollisions(new BABYLON.Vector3(-1*tank.speed, 0, 0));
-        tank.rotation.y -= 0.02;
-    }    
-    if(inputStates.right) {
-        //tank.moveWithCollisions(new BABYLON.Vector3(1*tank.speed, 0, 0));
-        tank.rotation.y += 0.02;
-    }
-}
 function modifySettings() {
     // as soon as we click on the game window, the mouse pointer is "locked"
     // you will have to press ESC to unlock it
