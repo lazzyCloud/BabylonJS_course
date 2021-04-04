@@ -1,4 +1,5 @@
 import Dude from "./Dude.js";
+import Zombie from "./Zombie.js";
 
 let canvas;
 let engine;
@@ -17,22 +18,37 @@ function startGame() {
     // out of the game window)
     modifySettings();
 
-    let tank = scene.getMeshByName("heroTank");
-
+    
     engine.runRenderLoop(() => {
-        let deltaTime = engine.getDeltaTime(); // remind you something ?
+        let deltaTime = engine.getDeltaTime(); // remind you something ?F
 
-        tank.move();
+        let tank = scene.getMeshByName("heroTank");
+        if (tank) {
+            tank.Dude.move(inputStates);
+        }
+        
+ 
+        // if tank move, zombie will hear the sound and chase tank
+        // otherwise zombie randomly move
+        let tmpZombie = scene.getMeshByName("zombie");
+        if (tmpZombie)
+            if (inputStates.up || inputStates.down) {
+                tmpZombie.Zombie.chase(scene);
+            } else {
+                tmpZombie.Zombie.move();
+            }
+        if(scene.zombies) {
+            for(var i = 0 ; i < scene.zombies.length ; i++) {
 
-        let heroDude = scene.getMeshByName("heroDude");
-        if(heroDude)
-            heroDude.Dude.move(scene);
-
-        if(scene.dudes) {
-            for(var i = 0 ; i < scene.dudes.length ; i++) {
-                scene.dudes[i].Dude.move(scene);
+                if (inputStates.up || inputStates.down) {
+                    scene.zombies[i].Zombie.chase(scene);
+                } else {
+                    scene.zombies[i].Zombie.move();
+                }
+                
             }
         }    
+
 
         scene.render();
     });
@@ -42,16 +58,13 @@ function createScene() {
     let scene = new BABYLON.Scene(engine);
     let ground = createGround(scene);
     let freeCamera = createFreeCamera(scene);
-
-    let tank = createTank(scene);
-
+    createTank(scene);
     // second parameter is the target to follow
-    let followCamera = createFollowCamera(scene, tank);
-    scene.activeCamera = followCamera;
+
+
 
     createLights(scene);
 
-    //createHeroDude(scene);
 
     createZombie(scene);
 
@@ -102,8 +115,8 @@ function createFreeCamera(scene) {
     return camera;
 }
 
-function createFollowCamera(scene, target) {
-    let camera = new BABYLON.FollowCamera("tankFollowCamera", target.position, scene, target);
+function createFollowCamera(scene,target) {
+    let camera = new BABYLON.FollowCamera("tankFollowCamera",target.position, scene,target);
 
     camera.radius = 40; // how far from the object to follow
 	camera.heightOffset = 14; // how high above the object to place the camera
@@ -116,105 +129,51 @@ function createFollowCamera(scene, target) {
 
 let zMovement = 5;
 function createTank(scene) {
-    let tank = new BABYLON.MeshBuilder.CreateBox("heroTank", {height:1, depth:6, width:6}, scene);
-    let tankMaterial = new BABYLON.StandardMaterial("tankMaterial", scene);
-    tankMaterial.diffuseColor = new BABYLON.Color3.Red;
-    tankMaterial.emissiveColor = new BABYLON.Color3.Blue;
-    tank.material = tankMaterial;
 
-    // By default the box/tank is in 0, 0, 0, let's change that...
-    tank.position.y = 0.6;
-    tank.speed = 1;
-    tank.frontVector = new BABYLON.Vector3(0, 0, 1);
-
-    tank.move = () => {
-                //tank.position.z += -1; // speed should be in unit/s, and depends on
-                                 // deltaTime !
-
-        // if we want to move while taking into account collision detections
-        // collision uses by default "ellipsoids"
-
-        let yMovement = 0;
-       
-        if (tank.position.y > 2) {
-            zMovement = 0;
-            yMovement = -2;
-        } 
-        //tank.moveWithCollisions(new BABYLON.Vector3(0, yMovement, zMovement));
-
-        if(inputStates.up) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, 1*tank.speed));
-            tank.moveWithCollisions(tank.frontVector.multiplyByFloats(tank.speed, tank.speed, tank.speed));
-        }    
-        if(inputStates.down) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, -1*tank.speed));
-            tank.moveWithCollisions(tank.frontVector.multiplyByFloats(-tank.speed, -tank.speed, -tank.speed));
-
-        }    
-        if(inputStates.left) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(-1*tank.speed, 0, 0));
-            tank.rotation.y -= 0.02;
-            tank.frontVector = new BABYLON.Vector3(Math.sin(tank.rotation.y), 0, Math.cos(tank.rotation.y));
-        }    
-        if(inputStates.right) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(1*tank.speed, 0, 0));
-            tank.rotation.y += 0.02;
-            tank.frontVector = new BABYLON.Vector3(Math.sin(tank.rotation.y), 0, Math.cos(tank.rotation.y));
-        }
-
-    }
-
-    return tank;
-}
-
-function createHeroDude(scene) {
-   // load the Dude 3D animated model
-    // name, folder, skeleton name 
     BABYLON.SceneLoader.ImportMesh("him", "models/Dude/", "Dude.babylon", scene,  (newMeshes, particleSystems, skeletons) => {
-        let heroDude = newMeshes[0];
-        heroDude.position = new BABYLON.Vector3(0, 0, 5);  // The original dude
+        let tank = newMeshes[0];
+        tank.position = new BABYLON.Vector3(0, 0, 5);  // The original dude
         // make it smaller 
-        heroDude.scaling = new BABYLON.Vector3(0.2  , 0.2, 0.2);
+        tank.scaling = new BABYLON.Vector3(0.2  , 0.2, 0.2);
         //heroDude.speed = 0.1;
 
         // give it a name so that we can query the scene to get it by name
-        heroDude.name = "heroDude";
+        tank.name = "heroTank";
 
-        // there might be more than one skeleton in an imported animated model. Try console.log(skeletons.length)
-        // here we've got only 1. 
-        // animation parameters are skeleton, starting frame, ending frame,  a boolean that indicate if we're gonna 
-        // loop the animation, speed, 
         let a = scene.beginAnimation(skeletons[0], 0, 120, true, 1);
 
-        let hero = new Dude(heroDude, 0.1);
+        let dude = new Dude(tank, 1);
 
-        // make clones
-        scene.dudes = [];
-        for(let i = 0; i < 10; i++) {
-            scene.dudes[i] = doClone(heroDude, skeletons, i);
-            scene.beginAnimation(scene.dudes[i].skeleton, 0, 120, true, 1);
-
-            // Create instance with move method etc.
-            var temp = new Dude(scene.dudes[i], 0.3);
-            // remember that the instances are attached to the meshes
-            // and the meshes have a property "Dude" that IS the instance
-            // see render loop then....
-        }
-         
-
+        let followCamera = createFollowCamera(scene, tank);
+        scene.activeCamera = followCamera;
     });
+
 }
 
 function createZombie(scene) {
+
     BABYLON.SceneLoader.ImportMesh("Zombie_Geo", "models/Zombie/", "Zombie.babylon", scene, function (newMeshes, particleSystems, skeletons) {
         let zombie = newMeshes[0];
-        //heroDude.position = new BABYLON.Vector3(0, 0, 5);  // The original dude
-        // make it smaller 
-        zombie.scaling = new BABYLON.Vector3(0.2  , 0.2, 0.2);
-        zombie.position = new BABYLON.Vector3(0, 0, 0);
-        zombie.rotation = new BABYLON.Vector3( -Math.PI/2 , 0, 0);
         
-        //heroDude.speed = 0.1;
+        // make zombie smaller, rotate zombie
+        zombie.scaling = new BABYLON.Vector3(0.2  , 0.2, 0.2);
+        zombie.name = "zombie";
+        let xrand = Math.floor(Math.random()*1000 - 500);
+        let zrand = Math.floor(Math.random()*1000 - 500);
+    
+        zombie.position = new BABYLON.Vector3(xrand, 0, zrand);
+        zombie.rotation = new BABYLON.Vector3( -Math.PI/2 , 0, 0);
+        scene.beginAnimation(zombie.skeleton, 0, 122, true, 1);
+        let oneZombie = new Zombie(zombie, 0.2);
+        
+        // make clones
+        scene.zombies = [];
+        for(let i = 0; i < 10; i++) {
+            scene.zombies[i] = doClone(zombie, skeletons, i);
+            scene.beginAnimation(scene.zombies[i].skeleton, 0, 122, true, 1);
+            var temp = new Zombie(scene.zombies[i], 0.2);
+
+        }
 
     });	
 }
@@ -222,12 +181,12 @@ function createZombie(scene) {
 
 function doClone(originalMesh, skeletons, id) {
     let myClone;
-    let xrand = Math.floor(Math.random()*500 - 250);
-    let zrand = Math.floor(Math.random()*500 - 250);
+    let xrand = Math.floor(Math.random()*1000-500);
+    let zrand = Math.floor(Math.random()*1000-500);
 
     myClone = originalMesh.clone("clone_" + id);
     myClone.position = new BABYLON.Vector3(xrand, 0, zrand);
-
+    myClone.rotation.y = Math.random() * Math.PI;
     if(!skeletons) return myClone;
 
     // The mesh has at least one skeleton
@@ -261,6 +220,34 @@ window.addEventListener("resize", () => {
     engine.resize()
 });
 
+function move() {
+    let yMovement = 0;
+    let tank = scene.getMeshByName("heroTank");
+   
+    if (tank.position.y > 2) {
+        zMovement = 0;
+        yMovement = -2;
+    } 
+    //tank.moveWithCollisions(new BABYLON.Vector3(0, yMovement, zMovement));
+
+    if(inputStates.up) {
+        //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, 1*tank.speed));
+        tank.moveWithCollisions(new BABYLON.Vector3(0, 0, 1*tank.speed));
+    }    
+    if(inputStates.down) {
+        //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, -1*tank.speed));
+        tank.moveWithCollisions(new BABYLON.Vector3(0, 0, 1*tank.speed));
+
+    }    
+    if(inputStates.left) {
+        //tank.moveWithCollisions(new BABYLON.Vector3(-1*tank.speed, 0, 0));
+        tank.rotation.y -= 0.02;
+    }    
+    if(inputStates.right) {
+        //tank.moveWithCollisions(new BABYLON.Vector3(1*tank.speed, 0, 0));
+        tank.rotation.y += 0.02;
+    }
+}
 function modifySettings() {
     // as soon as we click on the game window, the mouse pointer is "locked"
     // you will have to press ESC to unlock it
