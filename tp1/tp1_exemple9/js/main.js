@@ -7,7 +7,7 @@ let scene;
 // vars for handling inputs
 let inputStates = {};
 
-let idleAnim, walkAnim, backWalkAnim, deathAnim, impactAnim;
+
 
 
 window.onload = startGame;
@@ -38,19 +38,19 @@ function startGame() {
         if (tmpZombie)
             if (inputStates.up || inputStates.down) {
                 
-                tmpZombie.Zombie.chase(scene, deltaTime);
+                tmpZombie.Zombie.chase(tank, deltaTime);
             } else {
                 
-                tmpZombie.Zombie.move(deltaTime);
+                tmpZombie.Zombie.move(tank,deltaTime);
             }
         if(scene.zombies) {
             for(var i = 0 ; i < scene.zombies.length ; i++) {
 
                 if (inputStates.up || inputStates.down) {
                     
-                    scene.zombies[i].Zombie.chase(scene, deltaTime);
+                    scene.zombies[i].Zombie.chase(tank, deltaTime);
                 } else {
-                    scene.zombies[i].Zombie.move(deltaTime);
+                    scene.zombies[i].Zombie.move(tank,deltaTime);
                 }
                 
             }
@@ -156,15 +156,8 @@ function createGirl(scene) {
 
         newMeshes[1].name = "swordMesh";
 
-        let tank = new Girl(newMeshes[0], newMeshes[1], 2);
-
-        idleAnim = scene.beginWeightedAnimation(skeletons[0],143, 252, 1.0, true);
-        //leftTurnAnim = scene.beginWeightedAnimation(skeletons[0],310, 336, 0.0, true);
-        //rightTurnAnim = scene.beginWeightedAnimation(skeletons[0],350, 373, 0.0, true);
-        walkAnim = scene.beginWeightedAnimation(skeletons[0],462, 500, 0.0, true);
-        backWalkAnim = scene.beginWeightedAnimation(skeletons[0],0, 40, 0.0, true);
-        deathAnim = scene.beginWeightedAnimation(skeletons[0],50, 129, 0.0, true);
-        impactAnim = scene.beginWeightedAnimation(skeletons[0],260, 299, 0.0, true);
+        let tank = new Girl(newMeshes[0], newMeshes[1], 2, skeletons[0]);
+        tank.setAnims(scene, skeletons[0]);
         // create follow camera after creating tank
         // otherwise camera may attach to null due to async steps during scene creation
         let followCamera = createFollowCamera(scene, newMeshes[0]);
@@ -186,15 +179,17 @@ function createZombie(scene) {
     
         zombie.position = new BABYLON.Vector3(xrand, 0, zrand);
         zombie.rotation = new BABYLON.Vector3( -Math.PI/2 , 0, 0);
-        scene.beginAnimation(zombie.skeleton, 0, 122, true, 1);
+        //scene.beginAnimation(zombie.skeleton, 412, 532, true, 1);
         let oneZombie = new Zombie(zombie, 0.5);
+        oneZombie.setAnims(scene, zombie.skeleton);
         
         // make clones
         scene.zombies = [];
         for(let i = 0; i < 10; i++) {
             scene.zombies[i] = doClone(zombie, skeletons, i);
-            scene.beginAnimation(scene.zombies[i].skeleton, 0, 122, true, 1);
+            //scene.beginAnimation(, 412, 532, true, 1);
             var temp = new Zombie(scene.zombies[i], 0.5);
+            temp.setAnims(scene, scene.zombies[i].skeleton);
 
         }
 
@@ -274,20 +269,13 @@ function modifySettings() {
     
     //add the listener to the main, window object, and update the states
     window.addEventListener('keydown', (event) => {
-        idleAnim.weight = 0;
-        walkAnim.weight = 0;
-        backWalkAnim.weight = 0; 
         if ((event.key === "ArrowLeft") || (event.key === "q")|| (event.key === "Q")) {
-            idleAnim.weight = 1.0;
            inputStates.left = true;
         } else if ((event.key === "ArrowUp") || (event.key === "z")|| (event.key === "Z")){
-            walkAnim.weight = 1.0;
            inputStates.up = true;
         } else if ((event.key === "ArrowRight") || (event.key === "d")|| (event.key === "D")){
-            idleAnim.weight = 1.0;
            inputStates.right = true;
         } else if ((event.key === "ArrowDown")|| (event.key === "s")|| (event.key === "S")) {
-            backWalkAnim.weight = 1.0;
            inputStates.down = true;
         }  else if (event.key === " ") {
            inputStates.space = true;
@@ -296,9 +284,7 @@ function modifySettings() {
 
     //if the key will be released, change the states object 
     window.addEventListener('keyup', (event) => {
-        idleAnim.weight = 1.0;
-        walkAnim.weight = 0;
-        backWalkAnim.weight = 0; 
+
         if ((event.key === "ArrowLeft") || (event.key === "q")|| (event.key === "Q")) {
            inputStates.left = false;
         } else if ((event.key === "ArrowUp") || (event.key === "z")|| (event.key === "Z")){
