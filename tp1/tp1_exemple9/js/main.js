@@ -65,6 +65,8 @@ function createScene() {
     let scene = new BABYLON.Scene(engine);
     let ground = createGround(scene);
     let freeCamera = createFreeCamera(scene);
+
+    scene.collisionsEnabled = true;
     createGirl(scene);
 
 
@@ -92,7 +94,7 @@ function createGround(scene) {
         groundMaterial.primaryColor = BABYLON.Color3.Magenta();
         ground.material = groundMaterial;
         // to be taken into account by collision detection
-        ground.checkCollisions = true;
+        //ground.checkCollisions = true;
         //groundMaterial.wireframe=true;
     }
     return ground;
@@ -156,8 +158,9 @@ function createGirl(scene) {
 
         newMeshes[1].name = "swordMesh";
 
-        let tank = new Girl(newMeshes[0], newMeshes[1], 2, skeletons[0]);
+        let tank = new Girl(newMeshes[0], newMeshes[1], 0.5, skeletons[0]);
         tank.setAnims(scene, skeletons[0]);
+        tank.createBoundingBox(scene);
         // create follow camera after creating tank
         // otherwise camera may attach to null due to async steps during scene creation
         let followCamera = createFollowCamera(scene, newMeshes[0]);
@@ -180,17 +183,17 @@ function createZombie(scene) {
         zombie.position = new BABYLON.Vector3(xrand, 0, zrand);
         zombie.rotation = new BABYLON.Vector3( -Math.PI/2 , 0, 0);
         //scene.beginAnimation(zombie.skeleton, 412, 532, true, 1);
-        let oneZombie = new Zombie(zombie, 0.5);
+        let oneZombie = new Zombie(zombie, 0.2, 0);
         oneZombie.setAnims(scene, zombie.skeleton);
-        
+        oneZombie.createBoundingBox(scene);
         // make clones
         scene.zombies = [];
         for(let i = 0; i < 10; i++) {
             scene.zombies[i] = doClone(zombie, skeletons, i);
             //scene.beginAnimation(, 412, 532, true, 1);
-            var temp = new Zombie(scene.zombies[i], 0.5);
+            var temp = new Zombie(scene.zombies[i], 0.2, i+1);
             temp.setAnims(scene, scene.zombies[i].skeleton);
-
+            temp.createBoundingBox(scene);
         }
 
     });	
