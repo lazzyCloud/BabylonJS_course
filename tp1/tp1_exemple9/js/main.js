@@ -1,11 +1,14 @@
-import Dude from "./Dude.js";
 import Zombie from "./Zombie.js";
+import Girl from "./Girl.js";
 
 let canvas;
 let engine;
 let scene;
 // vars for handling inputs
 let inputStates = {};
+
+let idleAnim, walkAnim, backWalkAnim, deathAnim, impactAnim;
+
 
 window.onload = startGame;
 
@@ -24,7 +27,8 @@ function startGame() {
         // use deltaTime to calculate move distance
         let tank = scene.getMeshByName("heroTank");
         if (tank) {
-            tank.Dude.move(inputStates, deltaTime);
+
+            tank.Girl.move(inputStates, deltaTime);
         }
         
  
@@ -33,14 +37,17 @@ function startGame() {
         let tmpZombie = scene.getMeshByName("zombie");
         if (tmpZombie)
             if (inputStates.up || inputStates.down) {
+                
                 tmpZombie.Zombie.chase(scene, deltaTime);
             } else {
+                
                 tmpZombie.Zombie.move(deltaTime);
             }
         if(scene.zombies) {
             for(var i = 0 ; i < scene.zombies.length ; i++) {
 
                 if (inputStates.up || inputStates.down) {
+                    
                     scene.zombies[i].Zombie.chase(scene, deltaTime);
                 } else {
                     scene.zombies[i].Zombie.move(deltaTime);
@@ -58,7 +65,7 @@ function createScene() {
     let scene = new BABYLON.Scene(engine);
     let ground = createGround(scene);
     let freeCamera = createFreeCamera(scene);
-    createTank(scene);
+    createGirl(scene);
 
 
     createLights(scene);
@@ -135,25 +142,32 @@ function createFollowCamera(scene,target) {
 }
 
 let zMovement = 5;
-function createTank(scene) {
-    // create dude instead of tank
-    BABYLON.SceneLoader.ImportMesh("him", "models/Dude/", "Dude.babylon", scene,  (newMeshes, particleSystems, skeletons) => {
-        let tank = newMeshes[0];
-        tank.position = new BABYLON.Vector3(0, 0, 5);  // The original dude
-        // make it smaller 
-        tank.scaling = new BABYLON.Vector3(0.5 , 0.5, 0.5);
-        //heroDude.speed = 0.1;
+function createGirl(scene) {
+    // create girl instead of tank
+    BABYLON.SceneLoader.ImportMesh("", "models/Girl/", "girl.babylon", scene,  (newMeshes, particleSystems, skeletons) => {
+        for (var index = 0; index < newMeshes.length; index++) {
+			newMeshes[index].position = new BABYLON.Vector3(0, 0, 5);
+            newMeshes[index].scaling = new BABYLON.Vector3(0.2 , 0.2, 0.2);
+            newMeshes[index].rotation = new BABYLON.Vector3( -Math.PI/2 , 0, 0);
+		}
 
         // give it a name so that we can query the scene to get it by name
-        tank.name = "heroTank";
+        newMeshes[0].name = "heroTank";
 
-        
+        newMeshes[1].name = "swordMesh";
 
-        let dude = new Dude(tank, 2);
-        let a = scene.beginAnimation(skeletons[0], 0, 120, true, 1);
+        let tank = new Girl(newMeshes[0], newMeshes[1], 2);
+
+        idleAnim = scene.beginWeightedAnimation(skeletons[0],143, 252, 1.0, true);
+        //leftTurnAnim = scene.beginWeightedAnimation(skeletons[0],310, 336, 0.0, true);
+        //rightTurnAnim = scene.beginWeightedAnimation(skeletons[0],350, 373, 0.0, true);
+        walkAnim = scene.beginWeightedAnimation(skeletons[0],462, 500, 0.0, true);
+        backWalkAnim = scene.beginWeightedAnimation(skeletons[0],0, 40, 0.0, true);
+        deathAnim = scene.beginWeightedAnimation(skeletons[0],50, 129, 0.0, true);
+        impactAnim = scene.beginWeightedAnimation(skeletons[0],260, 299, 0.0, true);
         // create follow camera after creating tank
         // otherwise camera may attach to null due to async steps during scene creation
-        let followCamera = createFollowCamera(scene, tank);
+        let followCamera = createFollowCamera(scene, newMeshes[0]);
         scene.activeCamera = followCamera;
     });
 
@@ -260,13 +274,20 @@ function modifySettings() {
     
     //add the listener to the main, window object, and update the states
     window.addEventListener('keydown', (event) => {
+        idleAnim.weight = 0;
+        walkAnim.weight = 0;
+        backWalkAnim.weight = 0; 
         if ((event.key === "ArrowLeft") || (event.key === "q")|| (event.key === "Q")) {
+            idleAnim.weight = 1.0;
            inputStates.left = true;
         } else if ((event.key === "ArrowUp") || (event.key === "z")|| (event.key === "Z")){
+            walkAnim.weight = 1.0;
            inputStates.up = true;
         } else if ((event.key === "ArrowRight") || (event.key === "d")|| (event.key === "D")){
+            idleAnim.weight = 1.0;
            inputStates.right = true;
         } else if ((event.key === "ArrowDown")|| (event.key === "s")|| (event.key === "S")) {
+            backWalkAnim.weight = 1.0;
            inputStates.down = true;
         }  else if (event.key === " ") {
            inputStates.space = true;
@@ -275,6 +296,9 @@ function modifySettings() {
 
     //if the key will be released, change the states object 
     window.addEventListener('keyup', (event) => {
+        idleAnim.weight = 1.0;
+        walkAnim.weight = 0;
+        backWalkAnim.weight = 0; 
         if ((event.key === "ArrowLeft") || (event.key === "q")|| (event.key === "Q")) {
            inputStates.left = false;
         } else if ((event.key === "ArrowUp") || (event.key === "z")|| (event.key === "Z")){
