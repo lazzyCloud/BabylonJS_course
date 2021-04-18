@@ -17,37 +17,28 @@ function startGame() {
     engine = new BABYLON.Engine(canvas, true);
     scene = createScene();
 
+    scene.enablePhysics();
     // modify some default settings (i.e pointer events to prevent cursor to go 
     // out of the game window)
     modifySettings();
 
     
-    engine.runRenderLoop(() => {
+    //engine.runRenderLoop(() => {
+    scene.toRender = () => {
         let deltaTime = engine.getDeltaTime(); // remind you something ?F
         // use deltaTime to calculate move distance
         let tank = scene.getMeshByName("heroTank");
         if (tank) {
 
             tank.Girl.move(inputStates, deltaTime);
+            tank.Girl.slash(inputStates, scene);
         }
         
- 
-        // if tank move, zombie will hear the sound and chase tank
-        // otherwise zombie randomly move
-        let tmpZombie = scene.getMeshByName("zombie");
-        if (tmpZombie)
-            if (inputStates.up || inputStates.down) {
-                
-                tmpZombie.Zombie.chase(tank, deltaTime);
-            } else {
-                
-                tmpZombie.Zombie.move(tank,deltaTime);
-            }
-        if(scene.zombies) {
-            for(var i = 0 ; i < scene.zombies.length ; i++) {
 
+        if(scene.zombies) {
+        
+            for(var i = 0 ; i < scene.zombies.length ; i++) {
                 if (inputStates.up || inputStates.down) {
-                    
                     scene.zombies[i].Zombie.chase(tank, deltaTime);
                 } else {
                     scene.zombies[i].Zombie.move(tank,deltaTime);
@@ -58,11 +49,13 @@ function startGame() {
 
 
         scene.render();
-    });
+    }//);
+    scene.assetsManager.load();
 }
 
 function createScene() {
     let scene = new BABYLON.Scene(engine);
+    scene.assetsManager = configureAssetManager(scene);
     let ground = createGround(scene);
     let freeCamera = createFreeCamera(scene);
 
@@ -74,10 +67,60 @@ function createScene() {
 
 
     createZombie(scene);
-
+    loadSounds(scene);
    return scene;
 }
+function configureAssetManager(scene) {
+    // useful for storing references to assets as properties. i.e scene.assets.cannonsound, etc.
+    scene.assets = {};
 
+    let assetsManager = new BABYLON.AssetsManager(scene);
+
+    assetsManager.onProgress = function(remainingCount, totalCount, lastFinishedTask) {
+        engine.loadingUIText = 'We are loading the scene. ' + remainingCount + ' out of ' + totalCount + ' items still need to be loaded.';
+        console.log('We are loading the scene. ' + remainingCount + ' out of ' + totalCount + ' items still need to be loaded.');
+    };
+
+    assetsManager.onFinish = function(tasks) {
+        engine.runRenderLoop(function() {
+            scene.toRender();  
+        });
+    };
+
+
+    return assetsManager;
+
+}
+
+function loadSounds(scene) {
+    var assetsManager = scene.assetsManager;
+    var binaryTask = assetsManager.addBinaryFileTask("zombieSound", "sounds/zombie.wav");
+    binaryTask.onSuccess = function (task) {
+        scene.assets.zombieSound = new BABYLON.Sound("zombie", task.data, scene, null, { loop: true });
+    }
+
+    binaryTask = assetsManager.addBinaryFileTask("slashSound", "sounds/slash.wav");
+    binaryTask.onSuccess = function (task) {
+        scene.assets.slashSound = new BABYLON.Sound("slash", task.data, scene, null, { loop: false });
+    }
+
+    //binaryTask = assetsManager.addBinaryFileTask("dieSound", "sounds/dying.wav");
+    //binaryTask.onSuccess = function (task) {
+    //    scene.assets.dieSound = new BABYLON.Sound("die", task.data, scene, null, { loop: false });
+    //}
+    //binaryTask = assetsManager.addBinaryFileTask("explosion", "sounds/explosion.mp3");
+    //binaryTask.onSuccess = function (task) {
+    //    scene.assets.explosion = new BABYLON.Sound("explosion", task.data, scene, null, { loop: false });
+    //}
+
+    //binaryTask = assetsManager.addBinaryFileTask("pirates", "sounds/pirateFun.mp3");
+    //binaryTask.onSuccess = function(task) {
+    //    scene.assets.pirateMusic = new BABYLON.Sound("piratesFun", task.data, scene, null, {
+    //      loop: true,
+    //      autoplay: true
+    //    });
+    //  };
+}
 function createGround(scene) {
     const groundOptions = { width:2000, height:2000, subdivisions:20, minHeight:0, maxHeight:100, onReady: onGroundCreated};
     //scene is optional and defaults to the current scene
@@ -96,6 +139,9 @@ function createGround(scene) {
         // to be taken into account by collision detection
         //ground.checkCollisions = true;
         //groundMaterial.wireframe=true;
+        // for physic engine
+        ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground,
+            BABYLON.PhysicsImpostor.HeightmapImpostor, { mass: 0 }, scene);  
     }
     return ground;
 }
@@ -139,14 +185,19 @@ function createFollowCamera(scene,target) {
 	camera.rotationOffset = 0; // the viewing angle
 	camera.cameraAcceleration = .1; // how fast to move
 	camera.maxCameraSpeed = 5; // speed limit
-    camera.cameraRotation = new BABYLON.Vector3(0, 0,0);
     return camera;
 }
 
 let zMovement = 5;
 function createGirl(scene) {
     // create girl instead of tank
-    BABYLON.SceneLoader.ImportMesh("", "models/Girl/", "girl.babylon", scene,  (newMeshes, particleSystems, skeletons) => {
+    let meshTask = scene.assetsManager.addMeshTask("Girl task","", "models/Girl/", "girl.babylon");
+    meshTask.onSuccess = function (task) {
+        onGirlImported(task.loadedMeshes, task.loadedParticleSystems, task.loadedSkeletons);
+    }
+
+    function onGirlImported(newMeshes, particleSystems, skeletons) {
+    //BABYLON.SceneLoader.ImportMesh("", "models/Girl/", "girl.babylon", scene,  (newMeshes, particleSystems, skeletons) => {
         for (var index = 0; index < newMeshes.length; index++) {
 			newMeshes[index].position = new BABYLON.Vector3(0, 0, 5);
             newMeshes[index].scaling = new BABYLON.Vector3(0.2 , 0.2, 0.2);
@@ -161,17 +212,23 @@ function createGirl(scene) {
         let tank = new Girl(newMeshes[0], newMeshes[1], 0.5, skeletons[0]);
         tank.setAnims(scene, skeletons[0]);
         tank.createBoundingBox(scene);
+    
         // create follow camera after creating tank
         // otherwise camera may attach to null due to async steps during scene creation
         let followCamera = createFollowCamera(scene, newMeshes[0]);
         scene.activeCamera = followCamera;
-    });
+    }//);
 
 }
 
 function createZombie(scene) {
+    let meshTask = scene.assetsManager.addMeshTask("Zombie task","Zombie_Geo", "models/Zombie/", "Zombie.babylon");
+    meshTask.onSuccess = function (task) {
+        onZombieImported(task.loadedMeshes, task.loadedParticleSystems, task.loadedSkeletons);
+    }
 
-    BABYLON.SceneLoader.ImportMesh("Zombie_Geo", "models/Zombie/", "Zombie.babylon", scene, function (newMeshes, particleSystems, skeletons) {
+    function onZombieImported(newMeshes, particleSystems, skeletons) {
+    //BABYLON.SceneLoader.ImportMesh("Zombie_Geo", "models/Zombie/", "Zombie.babylon", scene, function (newMeshes, particleSystems, skeletons) {
         let zombie = newMeshes[0];
         
         // make zombie smaller, rotate zombie
@@ -186,6 +243,7 @@ function createZombie(scene) {
         let oneZombie = new Zombie(zombie, 0.2, 0);
         oneZombie.setAnims(scene, zombie.skeleton);
         oneZombie.createBoundingBox(scene);
+        oneZombie.createParticleSystem(scene);
         // make clones
         scene.zombies = [];
         for(let i = 0; i < 10; i++) {
@@ -194,9 +252,11 @@ function createZombie(scene) {
             var temp = new Zombie(scene.zombies[i], 0.2, i+1);
             temp.setAnims(scene, scene.zombies[i].skeleton);
             temp.createBoundingBox(scene);
+            temp.createParticleSystem(scene);
         }
+        scene.zombies[scene.zombies.length] = zombie;
 
-    });	
+    }//);	
 }
 
 

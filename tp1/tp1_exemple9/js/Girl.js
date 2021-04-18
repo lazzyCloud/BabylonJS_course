@@ -12,6 +12,7 @@ export default class Girl {
         this.backWalkAnim = null;
         this.deathAnim = null; 
         this.impactAnim = null;
+        this.slashAnim = null;
         // in case, attach the instance to the mesh itself, in case we need to retrieve
         // it after a scene.getMeshByName that would return the Mesh
         // SEE IN RENDER LOOP !
@@ -32,15 +33,18 @@ export default class Girl {
         this.girlMesh.checkCollisions = true;
         this.frontVector = new BABYLON.Vector3(Math.sin(this.girlMesh.rotation.y), 0, Math.cos(this.girlMesh.rotation.y));
         this.bounder = null;
-        //
-    }
+        
+        this.canSlash = true;
+        this.slashInterval = 1;
 
+    }
     setAnims(scene, skeleton) {
         this.idleAnim = scene.beginWeightedAnimation(skeleton,143, 252, 1.0, true);
         this.walkAnim = scene.beginWeightedAnimation(skeleton,462, 500, 0.0, true);
         this.backWalkAnim = scene.beginWeightedAnimation(skeleton,0, 40, 0.0, true);
         this.deathAnim = scene.beginWeightedAnimation(skeleton,50, 129, 0.0, true);
         this.impactAnim = scene.beginWeightedAnimation(skeleton,260, 299, 0.0, true);
+        this.slashAnim = scene.beginWeightedAnimation(skeleton, 382, 436, 0.0, true);
     }
     resetAnims() {
         this.idleAnim.weight = 0;
@@ -48,6 +52,7 @@ export default class Girl {
         this.backWalkAnim.weight = 0; 
         this.deathAnim.weight = 0;
         this.impactAnim.weight = 0;
+        this.slashAnim.weight = 0;
     }
     setWalkAnim() {
         this.resetAnims();
@@ -70,9 +75,20 @@ export default class Girl {
         this.resetAnims();
         this.idleAnim.weight = 1.0;
     }
+    setSlashAnim() {
+        this.resetAnims();  
+        
+        this.slashAnim.weight = 1.0;      
+        this.slashAnim.reset();
+
+        setTimeout(() => {
+            this.setIdleAnim();
+        }, 1600);
+    }
     // change move method in girl, current girl should move as previous tank
     move(inputStates, deltaTime) {
         if (!this.bounder) return;
+        if (this.slashAnim.weight > 0) return;
         this.girlMesh.position = new BABYLON.Vector3(this.bounder.position.x,
             this.bounder.position.y, this.bounder.position.z);
         
@@ -131,30 +147,97 @@ export default class Girl {
 
     createBoundingBox(scene) {
         // Create a box as BoundingBox of the Dude
-        let bounder = new BABYLON.Mesh.CreateBox("bounderGirl", 1, scene);
+        let bounder = new BABYLON.Mesh.CreateBox("girlbounder", 1, scene);
         let bounderMaterial = new BABYLON.StandardMaterial("bounderMaterial", scene);
         bounderMaterial.alpha = .4;
         bounder.material = bounderMaterial;
-        bounder.checkCollisions = true;
-
-        bounder.position = this.girlMesh.position.clone();
+        
 
         let bbInfo = Girl.boundingBoxParameters;
 
-        let max = bbInfo.boundingBox.maximum;
-        let min = bbInfo.boundingBox.minimum;
+        let max = bbInfo.boundingBox.maximumWorld;
+        let min = bbInfo.boundingBox.minimumWorld;
+
+        bounder.position = this.girlMesh.position.clone();
+
 
         // Not perfect, but kinda of works...
         // Looks like collisions are computed on a box that has half the size... ?
         bounder.scaling.x = (max._x - min._x) * 0.4;
-        bounder.scaling.y = (max._y - min._y) * 0.4;
-        bounder.scaling.z = (max._z - min._z) * 0.2;
+        bounder.scaling.y = (max._y - min._y) * 0.45;
+        bounder.scaling.z = (max._z - min._z) * 0.3;
 
-        bounder.isVisible = false;
-
+        //bounder.isVisible = false;
+        bounder.checkCollisions = true;
         this.bounder = bounder;
         this.bounder.girlMesh = this.girlMesh;
         
     }
+    slash(inputStates, scene) {
+        if (!inputStates.space) return;
+        if (!this.canSlash) return;
+
+        this.canSlash = false;
+        setTimeout(() => {
+            this.canSlash = true;
+        }, 1600);
+        
+        this.setSlashAnim();
+
+
+        setTimeout(() => {
+            
+            scene.assets.slashSound.setVolume(0.6);
+            scene.assets.slashSound.play();
+            let cannonball = BABYLON.MeshBuilder.CreateSphere("cannonball", {diameterX: 30, diameterY: 2,diameterZ: 30,segments: 32}, scene);
+            cannonball.material = new BABYLON.StandardMaterial("Fire", scene);
     
+            let pos = this.girlMesh.position;
+            // position the cannonball above the tank
+            cannonball.position = new BABYLON.Vector3(pos.x, pos.y+20, pos.z);
+            // move cannonBall position from above the center of the tank to above a bit further than the frontVector end (5 meter s further)
+            cannonball.position.addInPlace(this.frontVector.multiplyByFloats(5, 5, 5));
+    
+            // add physics to the cannonball, mass must be non null to see gravity apply
+            cannonball.physicsImpostor = new BABYLON.PhysicsImpostor(cannonball,
+                BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1 }, scene);    
+    
+            // the cannonball needs to be fired, so we need an impulse !
+            // we apply it to the center of the sphere
+            let powerOfFire = 20;
+            let azimuth = 0.1; 
+            let aimForceVector = new BABYLON.Vector3(-this.frontVector.x*powerOfFire, (this.frontVector.y+azimuth)*powerOfFire,-this.frontVector.z*powerOfFire);
+            
+            cannonball.physicsImpostor.applyImpulse(aimForceVector,cannonball.getAbsolutePosition());
+    
+            cannonball.actionManager = new BABYLON.ActionManager(scene);
+            // register an action for when the cannonball intesects a dude, so we need to iterate on each dude
+            scene.zombies.forEach(zombie => {
+                cannonball.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+                    {trigger : BABYLON.ActionManager.OnIntersectionEnterTrigger,
+                    parameter : zombie.Zombie.bounder}, // dude is the mesh, Dude is the instance if Dude class that has a bbox as a property named bounder.
+                                                    // see Dude class, line 16 ! dudeMesh.Dude = this;
+                    () => {
+                        //console.log(zombie.Zombie.bounder)
+                        if(zombie.Zombie.bounder._isDisposed) return;
+    
+                        //console.log("HIT !")
+                        //dude.Dude.bounder.dispose();
+                        //dude.dispose();
+                        
+
+                        zombie.Zombie.decreaseHealth();
+                        //cannonball.dispose(); // don't work properly why ? Need for a closure ?
+                    }
+                ));
+            });
+    
+            // Make the cannonball disappear after 3s
+            setTimeout(() => {
+                cannonball.dispose();
+            }, 600);
+        },800);
+
+
+    }
 }

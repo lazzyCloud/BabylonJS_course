@@ -28,6 +28,9 @@ export default class Zombie {
         //this.bounder = this.createBoundingBox();
         //this.bounder.zombieMesh = this.zombieMesh;
         this.frontVector = new BABYLON.Vector3(Math.sin(this.zombieMesh.rotation.y), 0, Math.cos(this.zombieMesh.rotation.y));
+        this.health = 3;
+        this.sound = null;
+
     }
     setAnims(scene, skeleton) {
         this.idleAnim = scene.beginWeightedAnimation(skeleton,240, 361, 0.0, true);
@@ -35,6 +38,11 @@ export default class Zombie {
         this.runningAnim = scene.beginWeightedAnimation(skeleton,372, 395, 0.0, true);
         this.dyingAnim = scene.beginWeightedAnimation(skeleton,140, 230, 0.0, true);
         this.biteAnim = scene.beginWeightedAnimation(skeleton,0, 126, 0.0, true);
+        this.sound = scene.assets.zombieSound;
+        if (this.sound && !this.sound.isPlaying) {
+            this.sound.setVolume(0.6);
+            this.sound.play();
+        }
     }
     resetAnims() {
         this.idleAnim.weight = 0;
@@ -54,11 +62,18 @@ export default class Zombie {
     }
     setDyingAnim() {
         this.resetAnims();
+        
+        this.dyingAnim.reset();
         this.dyingAnim.weight = 1.0;
+        setTimeout(() => {
+            this.zombieMesh.dispose();
+            this.bounder.dispose();
+        }, 2000);
     }
     setBiteAnim() {
         this.resetAnims();
         this.biteAnim.weight = 1.0;
+        //this.biteAnim.reset();
     }
     setIdleAnim() {
         this.resetAnims();
@@ -67,6 +82,8 @@ export default class Zombie {
     // zombie chase dude as dude chase tank before
     chase(tank, deltaTime) {
         if (!this.bounder) return;
+        if (this.dyingAnim.weight > 0) return;
+        
         this.zombieMesh.position = new BABYLON.Vector3(this.bounder.position.x,
             this.bounder.position.y, this.bounder.position.z);
                   // follow the tank
@@ -87,7 +104,7 @@ export default class Zombie {
                       this.bounder.moveWithCollisions(dir.multiplyByFloats(this.speed*0.5*deltaTime/16, this.speed*0.5*deltaTime/16, this.speed*0.5*deltaTime/16));
                       //this.zombieMesh.moveWithCollisions(dir.multiplyByFloats(this.speed*0.5*deltaTime/16, this.speed*0.5*deltaTime/16, this.speed*0.5*deltaTime/16));
                   }
-                  else {
+                  else {    
                       this.setBiteAnim();
                       tank.Girl.setImpactAnim();
 
@@ -96,6 +113,7 @@ export default class Zombie {
     // if dude does not move, zombie move randomly
     move(tank,deltaTime) {
         if (!this.bounder) return;
+        if (this.dyingAnim.weight > 0) return;
         this.zombieMesh.position = new BABYLON.Vector3(this.bounder.position.x,
             this.bounder.position.y, this.bounder.position.z);
         //let tank = scene.getMeshByName("heroTank");
@@ -168,11 +186,115 @@ export default class Zombie {
         bounder.scaling.y = (max._y - min._y) * 1;
         bounder.scaling.z = (max._z - min._z) * 0.2;
 
-        bounder.isVisible = false;
+        //bounder.isVisible = false;
 
         this.bounder = bounder;
-        this.bounder.zombieMesh = this.zombieMesh;
+        this.bounder.Zombie = this;
         
     }
 
+    decreaseHealth() {
+        // locate particle system at hit point
+        Zombie.particleSystem.emitter = new BABYLON.Vector3(this.zombieMesh.position.x, this.zombieMesh.position.y + 20, this.zombieMesh.position.z);
+        // start particle system
+        Zombie.particleSystem.start();
+
+        // make it stop after 300ms
+        setTimeout(() => {
+            Zombie.particleSystem.stop();
+        }, 300);
+
+        this.health--;
+
+        if (this.health <= 0) {
+            this.gotKilled();
+        }
+    }
+
+    gotKilled() {
+        this.setDyingAnim();
+    }
+
+    createParticleSystem(scene) {
+        if (Zombie.particleSystem == undefined) {
+            // Create a particle system
+            var particleSystem = new BABYLON.ParticleSystem("particles", 2000, this.scene);
+            //Box around emitter
+            var box = BABYLON.MeshBuilder.CreateBox("box", {width:2, height:4, depth: 5}, scene);
+            box.material = new BABYLON.StandardMaterial("mat", scene);
+            box.material.wireframe = true;
+            //Texture of each particle
+            particleSystem.particleTexture = new BABYLON.Texture(
+                "images/flare.png",
+                scene
+            );
+            Zombie.particleSystem = particleSystem;
+            this.setParticleSystemDefaultValues();
+            particleSystem.createBoxEmitter(new BABYLON.Vector3(-5, 2, 1), new BABYLON.Vector3(5, 2, -1), new BABYLON.Vector3(-1, -2, -2.5), new BABYLON.Vector3(1, 2, 2.5));
+
+        } 
+      }
+    
+      setParticleSystemDefaultValues() {
+        let particleSystem = Zombie.particleSystem;
+    
+        // Where the particles come from. Will be changed dynacally to the hit point.
+        particleSystem.emitter = new BABYLON.Vector3(0, 0, 0); // the starting object, the emitter
+
+        // Colors of all particles RGBA
+        particleSystem.color1 = new BABYLON.Color4(1, 0, 0, 1.0);
+        particleSystem.color2 = new BABYLON.Color4(1, 0, 0, 1.0);
+        particleSystem.colorDead = new BABYLON.Color4(0, 0, 0, 0.0);
+    
+        particleSystem.emitRate = 2000;
+    
+        // Set the gravity of all particles
+        //particleSystem.gravity = new BABYLON.Vector3(0, -9.81, 0);
+    
+        // Direction of each particle after it has been emitted
+        //particleSystem.direction1 = new BABYLON.Vector3(0, -1, 0);
+        //particleSystem.direction2 = new BABYLON.Vector3(0, -1, 0);
+    
+         // Size of each particle (random between...
+         particleSystem.minSize = 0.4;
+         particleSystem.maxSize = 1;
+         
+         particleSystem.minLifeTime = 0.3;
+         particleSystem.maxLifeTime = 1.5;
+
+             /******* Emission Space ********/
+        
+
+        // Speed
+        particleSystem.minEmitPower = 1;
+        particleSystem.maxEmitPower = 3;
+        particleSystem.updateSpeed = 0.005;
+         
+      }
+    
+      setParticleSystemToFinalExplosion() {
+        let particleSystem = Zombie.particleSystem;
+          particleSystem.emitter = new BABYLON.Vector3(
+          this.bounder.position.x,
+          this.bounder.position.y + 6,
+          this.bounder.position.z
+        );
+        console.log(this.bounder);
+        particleSystem.emitRate = 300;
+    
+        particleSystem.minEmitPower = 12;
+        particleSystem.maxEmitPower = 20;
+    
+         // Size of each particle (random between...
+         particleSystem.minSize = 0.5;
+         particleSystem.maxSize = 2.5;
+     
+         // Life time of each particle (random between...
+         particleSystem.minLifeTime = 0.3;
+         particleSystem.maxLifeTime = 1.5;
+    
+        particleSystem.gravity = new BABYLON.Vector3(0, -9.81, 0);
+    
+        particleSystem.createSphereEmitter(2);
+      }
 }
