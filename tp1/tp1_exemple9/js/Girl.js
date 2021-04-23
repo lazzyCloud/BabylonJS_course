@@ -13,6 +13,7 @@ export default class Girl {
         this.deathAnim = null; 
         this.impactAnim = null;
         this.slashAnim = null;
+        this.life=100;
         // in case, attach the instance to the mesh itself, in case we need to retrieve
         // it after a scene.getMeshByName that would return the Mesh
         // SEE IN RENDER LOOP !
@@ -42,7 +43,7 @@ export default class Girl {
         this.idleAnim = scene.beginWeightedAnimation(skeleton,143, 252, 1.0, true);
         this.walkAnim = scene.beginWeightedAnimation(skeleton,462, 500, 0.0, true);
         this.backWalkAnim = scene.beginWeightedAnimation(skeleton,0, 40, 0.0, true);
-        this.deathAnim = scene.beginWeightedAnimation(skeleton,50, 129, 0.0, true);
+        this.deathAnim = scene.beginWeightedAnimation(skeleton,52, 129, 0.0, true);
         this.impactAnim = scene.beginWeightedAnimation(skeleton,260, 299, 0.0, true);
         this.slashAnim = scene.beginWeightedAnimation(skeleton, 382, 436, 0.0, true);
     }
@@ -65,11 +66,32 @@ export default class Girl {
     }
     setDeathAnim() {
         this.resetAnims();
+        //this.deathAnim.reset();
         this.deathAnim.weight = 1.0;
+        this.deathAnim.restart();
+            setTimeout(() => {
+                this.girlMesh.dispose();
+                this.swordMesh.dispose();
+                var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+    
+                var button1 = BABYLON.GUI.Button.CreateSimpleButton("but1", "You lose! Zombies eat your brain!\n Press F5 to restart!");
+                button1.width = "300px"
+                button1.height = "80px";
+                button1.color = "white";
+                button1.cornerRadius = 20;
+                button1.background = "red";
+                button1.onPointerUpObservable.add(function() {
+                    console.log("you lose!");
+                });
+                advancedTexture.addControl(button1);   
+            }, 1500); 
+ 
     }
     setImpactAnim() {
         this.resetAnims();
         this.impactAnim.weight = 1.0;
+        this.decreaseHealth();
+        
     }
     setIdleAnim() {
         this.resetAnims();
@@ -86,11 +108,12 @@ export default class Girl {
         }, 1600);
     }
     // change move method in girl, current girl should move as previous tank
-    move(inputStates, deltaTime) {
+    move(scene,inputStates, deltaTime) {
         if (!this.bounder) return;
         if (this.slashAnim.weight > 0) return;
         this.girlMesh.position = new BABYLON.Vector3(this.bounder.position.x,
             this.bounder.position.y, this.bounder.position.z);
+        this.followGround(scene);
         
         //if (this.impactAnim.weight == 1.0) return;
         if(inputStates.up) {
@@ -164,10 +187,10 @@ export default class Girl {
         // Not perfect, but kinda of works...
         // Looks like collisions are computed on a box that has half the size... ?
         bounder.scaling.x = (max._x - min._x) * 0.4;
-        bounder.scaling.y = (max._y - min._y) * 0.45;
+        bounder.scaling.y = (max._y - min._y);
         bounder.scaling.z = (max._z - min._z) * 0.3;
 
-        //bounder.isVisible = false;
+        bounder.isVisible = false;
         bounder.checkCollisions = true;
         this.bounder = bounder;
         this.bounder.girlMesh = this.girlMesh;
@@ -191,7 +214,7 @@ export default class Girl {
             scene.assets.slashSound.play();
             let cannonball = BABYLON.MeshBuilder.CreateSphere("cannonball", {diameterX: 30, diameterY: 2,diameterZ: 30,segments: 32}, scene);
             cannonball.material = new BABYLON.StandardMaterial("Fire", scene);
-    
+            cannonball.isVisible = false;
             let pos = this.girlMesh.position;
             // position the cannonball above the tank
             cannonball.position = new BABYLON.Vector3(pos.x, pos.y+20, pos.z);
@@ -239,5 +262,29 @@ export default class Girl {
         },800);
 
 
+    }
+
+    followGround(scene) {
+        // adjusts y position depending on ground height...
+    
+        // create a ray that starts above the dude, and goes down vertically
+        let origin = new BABYLON.Vector3(this.girlMesh.position.x, 1000, this.girlMesh.position.z);
+        let direction = new BABYLON.Vector3(0, -1, 0);
+        let ray = new BABYLON.Ray(origin, direction, 10000);
+    
+        // compute intersection point with the ground
+        let pickInfo = scene.pickWithRay(ray, (mesh) => { return (mesh.name === "gdhm"); });
+    
+        let groundHeight = pickInfo.pickedPoint.y;
+        this.girlMesh.position.y = groundHeight;
+        this.swordMesh.position.y = groundHeight;
+        this.bounder.position.y = groundHeight;
+        return groundHeight;
+      }
+    decreaseHealth() {
+        this.life -= 1;
+        console.log(this.life);
+        if (this.life <= 0)
+            this.setDeathAnim();
     }
 }

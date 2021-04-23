@@ -30,7 +30,7 @@ function startGame() {
         let tank = scene.getMeshByName("heroTank");
         if (tank) {
 
-            tank.Girl.move(inputStates, deltaTime);
+            tank.Girl.move(scene,inputStates, deltaTime);
             tank.Girl.slash(inputStates, scene);
         }
         
@@ -39,9 +39,9 @@ function startGame() {
         
             for(var i = 0 ; i < scene.zombies.length ; i++) {
                 if (inputStates.up || inputStates.down) {
-                    scene.zombies[i].Zombie.chase(tank, deltaTime);
+                    scene.zombies[i].Zombie.chase(scene,tank, deltaTime);
                 } else {
-                    scene.zombies[i].Zombie.move(tank,deltaTime);
+                    scene.zombies[i].Zombie.move(scene,tank,deltaTime);
                 }
                 
             }
@@ -124,7 +124,7 @@ function loadSounds(scene) {
 function createGround(scene) {
     const groundOptions = { width:2000, height:2000, subdivisions:20, minHeight:0, maxHeight:100, onReady: onGroundCreated};
     //scene is optional and defaults to the current scene
-    const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("gdhm", 'images/hmap1.png', groundOptions, scene); 
+    const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("gdhm", 'images/hmap2.jpg', groundOptions, scene); 
 
     function onGroundCreated() {
         const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
@@ -252,7 +252,7 @@ function createZombie(scene) {
             var temp = new Zombie(scene.zombies[i], 0.2, i+1);
             temp.setAnims(scene, scene.zombies[i].skeleton);
             temp.createBoundingBox(scene);
-            temp.createParticleSystem(scene);
+            //temp.createParticleSystem(scene);
         }
         scene.zombies[scene.zombies.length] = zombie;
 

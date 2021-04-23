@@ -14,7 +14,7 @@ export default class Zombie {
         this.dyingAnim = null;
         this.runningAnim = null;
         this.walkingAnim = null;
-
+        Zombie.countKilled = 0;
         // FOR COLLISIONS, let's associate a BoundingBox to the Dude
 
         // singleton, static property, computed only for the first dude we constructed
@@ -80,12 +80,13 @@ export default class Zombie {
         this.idleAnim.weight = 1.0;
     }
     // zombie chase dude as dude chase tank before
-    chase(tank, deltaTime) {
+    chase(scene,tank, deltaTime) {
         if (!this.bounder) return;
         if (this.dyingAnim.weight > 0) return;
         
         this.zombieMesh.position = new BABYLON.Vector3(this.bounder.position.x,
             this.bounder.position.y, this.bounder.position.z);
+            this.followGround(scene);
                   // follow the tank
                   //let tank = scene.getMeshByName("heroTank");
                   // let's compute the direction vector that goes from Dude to the tank
@@ -106,17 +107,20 @@ export default class Zombie {
                   }
                   else {    
                       this.setBiteAnim();
-                      tank.Girl.setImpactAnim();
+                      if (tank.Girl.slashAnim.weight != 1.0)
+                        tank.Girl.setImpactAnim();
 
                   }   
     }
     // if dude does not move, zombie move randomly
-    move(tank,deltaTime) {
+    move(scene,tank,deltaTime) {
         if (!this.bounder) return;
         if (this.dyingAnim.weight > 0) return;
         this.zombieMesh.position = new BABYLON.Vector3(this.bounder.position.x,
             this.bounder.position.y, this.bounder.position.z);
+        this.followGround(scene);
         //let tank = scene.getMeshByName("heroTank");
+        if (tank == undefined) return;
         let direction = tank.position.subtract(this.zombieMesh.position);
         let distance = direction.length(); // we take the vector that is not normalized, not the dir vector
         if (distance > 25) {
@@ -186,7 +190,7 @@ export default class Zombie {
         bounder.scaling.y = (max._y - min._y) * 1;
         bounder.scaling.z = (max._z - min._z) * 0.2;
 
-        //bounder.isVisible = false;
+        bounder.isVisible = false;
 
         this.bounder = bounder;
         this.bounder.Zombie = this;
@@ -213,6 +217,24 @@ export default class Zombie {
 
     gotKilled() {
         this.setDyingAnim();
+        Zombie.countKilled += 1;
+        if (Zombie.countKilled >= 11) {
+            this.sound.stop();
+        // GUI
+            var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+
+            var button1 = BABYLON.GUI.Button.CreateSimpleButton("but1", "You win! Press F5 to restart!");
+            button1.width = "300px"
+            button1.height = "80px";
+            button1.color = "white";
+            button1.cornerRadius = 20;
+            button1.background = "green";
+            button1.onPointerUpObservable.add(function() {
+                console.log("you did it!");
+            });
+            advancedTexture.addControl(button1);     
+        }
+
     }
 
     createParticleSystem(scene) {
@@ -296,5 +318,21 @@ export default class Zombie {
         particleSystem.gravity = new BABYLON.Vector3(0, -9.81, 0);
     
         particleSystem.createSphereEmitter(2);
+      }
+      followGround(scene) {
+        // adjusts y position depending on ground height...
+    
+        // create a ray that starts above the dude, and goes down vertically
+        let origin = new BABYLON.Vector3(this.zombieMesh.position.x, 1000, this.zombieMesh.position.z);
+        let direction = new BABYLON.Vector3(0, -1, 0);
+        let ray = new BABYLON.Ray(origin, direction, 10000);
+    
+        // compute intersection point with the ground
+        let pickInfo = scene.pickWithRay(ray, (mesh) => { return (mesh.name === "gdhm"); });
+    
+        let groundHeight = pickInfo.pickedPoint.y;
+        this.zombieMesh.position.y = groundHeight;
+        this.bounder.position.y = groundHeight;
+        return groundHeight;
       }
 }
