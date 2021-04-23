@@ -14,6 +14,7 @@ export default class Girl {
         this.impactAnim = null;
         this.slashAnim = null;
         this.life=100;
+        this.advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI');
         // in case, attach the instance to the mesh itself, in case we need to retrieve
         // it after a scene.getMeshByName that would return the Mesh
         // SEE IN RENDER LOOP !
@@ -72,8 +73,7 @@ export default class Girl {
             setTimeout(() => {
                 this.girlMesh.dispose();
                 this.swordMesh.dispose();
-                var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
-    
+
                 var button1 = BABYLON.GUI.Button.CreateSimpleButton("but1", "You lose! Zombies eat your brain!\n Press F5 to restart!");
                 button1.width = "300px"
                 button1.height = "80px";
@@ -83,8 +83,8 @@ export default class Girl {
                 button1.onPointerUpObservable.add(function() {
                     console.log("you lose!");
                 });
-                advancedTexture.addControl(button1);   
-            }, 1500); 
+                this.advancedTexture.addControl(button1);   
+            }, 1200); 
  
     }
     setImpactAnim() {
@@ -287,4 +287,5 @@ export default class Girl {
         if (this.life <= 0)
             this.setDeathAnim();
     }
+
 }

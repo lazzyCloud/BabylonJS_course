@@ -29,7 +29,7 @@ function startGame() {
         // use deltaTime to calculate move distance
         let tank = scene.getMeshByName("heroTank");
         if (tank) {
-
+            
             tank.Girl.move(scene,inputStates, deltaTime);
             tank.Girl.slash(inputStates, scene);
         }
@@ -61,7 +61,7 @@ function createScene() {
 
     scene.collisionsEnabled = true;
     createGirl(scene);
-
+    
 
     createLights(scene);
 
@@ -70,6 +70,7 @@ function createScene() {
     loadSounds(scene);
    return scene;
 }
+
 function configureAssetManager(scene) {
     // useful for storing references to assets as properties. i.e scene.assets.cannonsound, etc.
     scene.assets = {};
@@ -212,11 +213,11 @@ function createGirl(scene) {
         let tank = new Girl(newMeshes[0], newMeshes[1], 0.5, skeletons[0]);
         tank.setAnims(scene, skeletons[0]);
         tank.createBoundingBox(scene);
-    
         // create follow camera after creating tank
         // otherwise camera may attach to null due to async steps during scene creation
-        let followCamera = createFollowCamera(scene, newMeshes[0]);
+        let followCamera = createFollowCamera(scene, tank.girlMesh);
         scene.activeCamera = followCamera;
+
     }//);
 
 }

@@ -83,7 +83,7 @@ export default class Zombie {
     chase(scene,tank, deltaTime) {
         if (!this.bounder) return;
         if (this.dyingAnim.weight > 0) return;
-        
+        if (tank == undefined) return;
         this.zombieMesh.position = new BABYLON.Vector3(this.bounder.position.x,
             this.bounder.position.y, this.bounder.position.z);
             this.followGround(scene);
@@ -329,10 +329,12 @@ export default class Zombie {
     
         // compute intersection point with the ground
         let pickInfo = scene.pickWithRay(ray, (mesh) => { return (mesh.name === "gdhm"); });
-    
-        let groundHeight = pickInfo.pickedPoint.y;
-        this.zombieMesh.position.y = groundHeight;
-        this.bounder.position.y = groundHeight;
-        return groundHeight;
+        if (pickInfo.pickedPoint) {
+
+            let groundHeight = pickInfo.pickedPoint.y;
+            this.zombieMesh.position.y = groundHeight;
+            this.bounder.position.y = groundHeight;
+        }
+
       }
 }
